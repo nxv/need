@@ -1,8 +1,12 @@
+Q = require 'q'
 fs = require 'fs'
+glob = require 'glob'
 path = require 'path'
+async = require 'async'
 {inspect} = require 'util'
 
 exists = fs.existsSync
+globAsync = Q.denodeify glob
 
 isFile = (p) ->
   exists(p) and fs.statSync(p).isFile()
@@ -33,8 +37,8 @@ getCaller = (offset = 0) ->
   path: path.dirname f
   fullpath: f
 
-nodeModulesPaths = (start, opt) ->
-  modules = opt.moduleDirectory || 'node_modules'
+getPaths = (start) ->
+  modules = 'node_modules'
   prefix = '/'
   if /^([A-Za-z]:)/.test start
     prefix = ''
@@ -74,20 +78,21 @@ resolveFile = (p, opt) ->
     f = p + ext
     if isFile f then f else continue
 
-resolveDirectory = (p, opt) ->
-  f = path.join p, 'index'
-  package = path.join p, 'package.json'
-  if exists package
-    package = require package
-    if package.main?
-      f = path.resolve p, package.main
+# resolveDirectory = (p, opt) ->
+#   f = path.join p, 'index'
+#   package = path.join p, 'package.json'
+#   if exists package
+#     package = require package
+#     if package.main?
+#       f = path.resolve p, package.main
 
-resolveModule = (from, to, opt) ->
-  dirs = nodeModulesPaths from, opt
-  for p in dirs
-    if isDir p
-      return resolve p, './' + to
-  throw new Error "Cannot find module #{inspect to}"
+# resolveModule = (from, to, paths) ->
+#   paths = paths || getPaths from
+#   for p in paths
+#     if isDir p
+#       return resolve p, './' + to
+#   throw new Error "Cannot find module #{inspect to}"
+
 
 resolve = (from, to, opt = {}) ->
   if to.match /^(?:\.\.?\/|\/|([A-Za-z]:)?\\)/
@@ -119,21 +124,89 @@ class List
       name = name || val.getName() || m
       @pair[name] = val
 
-need = (module, opt = {}, callback) ->
+flatten = (arg, depth = Infinity) ->
+  if depth < 0
+    return [arg]
+  switch typefor arg
+    when 'Function'
+      flatten arg(), -- depth
+    when 'Array', 'Object'
+      ret = for k, v of arg
+        flatten v, -- depth
+      [].concat ret...
+    else [arg]
+
+need = (pattern, opt, callback) ->
   if typeof opt is 'function'
     [callback, opt] = [opt, callback]
+  opt = Object.create opt || {}
   opt.caller = getCaller()
-  ret = switch typefor module
-    when 'String'
-      new Module module, opt
-    when 'Function'
-      new Module module(), opt
-    when 'Array'
-      new List module, opt
-    when 'Object'
-      new List module, opt
-  callback? ret.send, ret.each, ret.pair
-  ret
+  opt.path = opt.caller.path
+  opt.paths = getPaths opt.path
+  opt.sync = !callback
+  opt.glob =
+    cwd: opt.path
+    mark: on
+    silent: on
+    sync: opt.sync
+  pattern = flatten(pattern)
+  # .map (p) ->
+  #   if p.match /^(?:\.\.?\/|\/|([A-Za-z]:)?\\)/
+  #     return path.resolve opt.path, p
+  #   for m in opt.paths
+  #     path.join m, p
+  if opt.sync
+    loadSync pattern, opt
+  else
+    loadAsync pattern, opt, callback
+    # console.log pattern
+    # Q.all(pattern)
+    #   .then(globAsync(opt.glob))
+    #   .spread(flattenAsync)
+    #   .all(loadAsync)
+    #   .spread(flattenAsync)
+    #   .nodeify(callback)
+
+loadAsync = (pattern, opt, callback) ->
+  console.log pattern
+  async.map pattern, globAsync(opt), callback
+
+globAsync = (opt) ->
+  (pattern, callback) ->
+    if pattern.match /^(?:\.\.?\/|\/|([A-Za-z]:)?\\)/
+      glob pattern, opt.glob, (err, files) ->
+        return callback err if err
+        files = files.map (f) ->
+          path.resolve opt.path, f
+        callback null, flatten files
+    else
+      resolveModuleAsync opt.path, pattern, opt.glob, callback
+
+resolveModuleAsync = (from, to, opt, callback) ->
+  opt = Object.create opt
+  paths = paths || getPaths from
+  async.detectSeries paths.reverse(), (p, callback) ->
+    opt.cwd = p
+    glob to, opt, (err, files) ->
+      callback files
+  , (module) ->
+    unless module
+      return callback new Error "Cannot find module #{inspect to}"
+    callback null, path.resolve module, to
+
+# globAsync = (opt) ->
+#   (pattern) ->
+#     console.log pattern
+#     globAsync pattern, opt
+
+flattenAsync = (arg...) ->
+  flatten arg
+
+# loadAsync = (p) ->
+#   try
+#     require p
+#   catch e
+
 
 need.resolve = resolve
 need.expand = expand

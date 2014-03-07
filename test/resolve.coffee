@@ -1,2 +1,4 @@
-{resolve} = require '../src/need'
-console.log resolve __dirname, 'coffee*/'
+need = require '../src/need'
+
+need ['./*', '../**/{}/sd', 'coffee-script/*'], (err, files) ->
+  console.log files
