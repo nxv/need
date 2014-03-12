@@ -1,4 +1,4 @@
 need = require '../src/need'
 
-need ['./*', '../**/{}/sd', 'coffee-script/*'], (err, files) ->
+need ['./*', '../*', 'coffee-script/**/*.js'], (err, files) ->
   console.log files
