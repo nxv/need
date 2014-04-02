@@ -64,6 +64,12 @@ Overwrite default `options`.
 
 **Alias:** `need.default`
 
+**Parameters**
+
+- `options`
+  - `(Object)` - The configurations to be modified.
+  - `(undefined)` - Restore to the original default settings.
+
 **Return:** new `need` instance
 
 ### need.set( name, map )
@@ -141,6 +147,8 @@ Remove an extension handler, same as deleting an item from the default `options.
 
 ## Options
 
+Current settings saved in `need.options`. Please **DO NOT** change it directly, instead try to use `need.config()` and other alias methods to create new *need* instances with modified default options. Otherwise it's dangerous to pollute the original instance for other modules. You can get a clean *need* instance (original default options) by `need.config()` with no arguments.
+
 ### async
 
 **Type:** `(Boolean)`
@@ -153,17 +161,17 @@ Stay `false` to directly return the loaded modules. If `true` load files asynchr
 
 **Alias:** map
 
-**Type:** `(Object)`
+**Type:** `Array([name, map]|[(String) Function( pattern )])`
 
-**Default:** `{}`
+**Default:** `[]`
 
 A table of path alias mappings.
 
 ### base
 
-**Type:** `(String)` | `(String) Function()`
+**Type:** `false` | `(String)` | `(String) Function()`
 
-**Default:** `{}`
+**Default:** `false`
 
 If specified, related paths and node_modules paths would be resolved based on this path.
 
