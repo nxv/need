@@ -6,12 +6,14 @@
 
 defaultOptions =
   async: no
-  alias: []
+  map: 123
+  alias: [1,2,3]
   base: no
   log: no
-  object: no
-  names: no
-  extensions: no
+  object: yes
+  obj: no
+  name: no
+  ext: no
 
 alias = [
   ['alias','map']
@@ -20,3 +22,4 @@ alias = [
   ['extensions','exts','ext'] ]
 
 console.log mergeAlias defaultOptions, alias
+console.log neatenAlias defaultOptions, alias
