@@ -1,2 +1,3 @@
-{getCaller} = require '../src/need'
-console.log getCaller()
+need = require '../src/structure'
+console.log need()
+console.log need.async() '', {}
